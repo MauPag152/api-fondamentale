@@ -29,7 +29,7 @@
     .field{background:#0b1730;border:1px solid #1e2d4a;border-radius:12px;padding:10px}
     label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
     .tv{height:520px; border-radius:12px; overflow:hidden;}
-    pre{white-space:pre-wrap;word-break:break-word;background:#0b1730;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:12.5px}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0b1730;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:12.5px; min-height:100px; color:#19c37d;}
     .badge{display:inline-block;border:1px solid var(--border);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted)}
     .sticky{position:sticky;top:0;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--border);z-index:3}
     .split{display:grid;grid-template-columns:1fr;gap:12px}
@@ -45,15 +45,12 @@
       <div style="font-weight:800">ANALYSE MULTI-ACTIONS (API FMP)</div>
       <div style="flex:1"></div>
       <button id="genAll">Générer Markdown (tous)</button>
-      <button id="copy">Copier Markdown</button>
+      <button id="copyMd">Copier Markdown</button>
     </div>
   </div>
 
   <div class="card">
     <h1>1) Liste de tickers (Saisissez vos actions ici)</h1>
-    <div class="hint" style="font-size:12px; color:var(--muted); margin-bottom:8px;">
-        Séparez les symboles par des virgules. Exemple: AAPL, TSLA, NVDA, BTCUSD...
-    </div>
     <textarea id="tickersInput">NVDA, AAPL, GOOG, MSFT, AMZN</textarea>
     <div class="row" style="margin-top:10px">
       <button id="apply">Appliquer la liste</button>
@@ -95,7 +92,6 @@
         </div>
         <div class="row" style="margin-top:15px">
           <button id="saveActive">Enregistrer ce ticker</button>
-          <div id="score" class="badge">Score: —</div>
         </div>
       </div>
       <div class="card" style="margin:0">
@@ -117,12 +113,11 @@ const KEYS = ["pe","peg","roe5y","quick","de","netMargin","evEbitda","intCov","r
 
 /* --- LOGIQUE API VIA VERCEL --- */
 async function autoFillAPI() {
-    const symbol = document.getElementById("tickerSelect").value.split(':').pop();
+    const symbol = document.getElementById("tickerSelect").value;
     const btn = document.getElementById("autoFillBtn");
     btn.innerText = "⏳ Récupération...";
 
     try {
-        // Appelle ton moteur Vercel au lieu de FMP en direct
         const response = await fetch(`/api/get-fundamentals?ticker=${symbol}`);
         const data = await response.json();
         
@@ -143,10 +138,7 @@ async function autoFillAPI() {
             document.getElementById("fcfYield").value = r.freeCashFlowYieldTTM ? (r.freeCashFlowYieldTTM * 100).toFixed(1) + "%" : "N/A";
             document.getElementById("payout").value = r.payoutRatioTTM ? (r.payoutRatioTTM * 100).toFixed(1) + "%" : "N/A";
         }
-    } catch (e) { 
-        alert("Erreur de connexion au moteur Vercel."); 
-        console.error(e);
-    }
+    } catch (e) { alert("Erreur Vercel. Vérifiez votre clé API."); }
     btn.innerText = "✨ AUTO-REMPLIR VIA API";
 }
 
@@ -156,48 +148,63 @@ function loadTradingView(symbol){
   const s = document.createElement("script");
   s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
   s.async = true;
-  // Nettoyer le symbole pour TradingView
-  const cleanSymbol = symbol.includes(':') ? symbol : symbol.split('.')[0];
-  s.innerHTML = JSON.stringify({ "autosize": true, "symbol": cleanSymbol, "interval": "D", "theme": "dark", "style": "1", "locale": "fr" });
+  s.innerHTML = JSON.stringify({ "autosize": true, "symbol": symbol, "interval": "D", "theme": "dark", "style": "1", "locale": "fr" });
   el.appendChild(s);
 }
 
+/* --- SAUVEGARDE & RAPPORTS --- */
 function loadState(){ return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
-function saveState(state){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
 
-function fillForm(symbol){
+document.getElementById("saveActive").onclick = () => {
+  const sym = document.getElementById("tickerSelect").value;
   const state = loadState();
-  const data = state[symbol] || { sector:"", notes:"", metrics:{} };
-  document.getElementById("sector").value = data.sector || "";
-  document.getElementById("notes").value = data.notes || "";
-  KEYS.forEach(k => { document.getElementById(k).value = data.metrics[k] || ""; });
-  loadTradingView(symbol);
-  document.getElementById("activeInfo").innerText = "Actif: " + symbol;
-}
+  state[sym] = { 
+    sector: document.getElementById("sector").value, 
+    notes: document.getElementById("notes").value, 
+    metrics: {} 
+  };
+  KEYS.forEach(k => { state[sym].metrics[k] = document.getElementById(k).value; });
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  alert(sym + " sauvegardé ! Cliquez sur 'Générer Markdown' en haut pour voir le rapport.");
+};
 
-/* --- ÉVÉNEMENTS --- */
+document.getElementById("genAll").onclick = () => {
+  const state = loadState();
+  const symbols = Object.keys(state);
+  if(!symbols.length) return alert("Aucune donnée enregistrée.");
+  
+  let md = "| Ticker | Secteur | P/E | ROE | Marge | FCF Yield |\n|---|---|---|---|---|---|\n";
+  symbols.forEach(s => {
+    const d = state[s];
+    md += `| **${s}** | ${d.sector} | ${d.metrics.pe} | ${d.metrics.roe5y} | ${d.metrics.netMargin} | ${d.metrics.fcfYield} |\n`;
+  });
+  document.getElementById("md").innerText = md;
+};
+
+document.getElementById("copyMd").onclick = () => {
+  navigator.clipboard.writeText(document.getElementById("md").innerText);
+  alert("Copié dans le presse-papier !");
+};
+
+/* --- NAVIGATION --- */
 document.getElementById("apply").onclick = () => {
   const list = document.getElementById("tickersInput").value.split(',').map(s => s.trim().toUpperCase());
   const select = document.getElementById("tickerSelect");
   select.innerHTML = "";
   list.forEach(s => { const opt = document.createElement("option"); opt.value = s; opt.text = s; select.add(opt); });
-  if(list.length) fillForm(list[0]);
+  if(list.length) {
+      document.getElementById("activeInfo").innerText = "Actif: " + list[0];
+      loadTradingView(list[0]);
+  }
 };
 
-document.getElementById("saveActive").onclick = () => {
-  const sym = document.getElementById("tickerSelect").value;
-  const state = loadState();
-  state[sym] = { sector: document.getElementById("sector").value, notes: document.getElementById("notes").value, metrics: {} };
-  KEYS.forEach(k => { state[sym].metrics[k] = document.getElementById(k).value; });
-  saveState(state);
-  alert("Sauvegardé !");
+document.getElementById("tickerSelect").onchange = (e) => {
+    document.getElementById("activeInfo").innerText = "Actif: " + e.target.value;
+    loadTradingView(e.target.value);
 };
-
-document.getElementById("tickerSelect").onchange = (e) => fillForm(e.target.value);
 document.getElementById("autoFillBtn").onclick = autoFillAPI;
 document.getElementById("loadTv").onclick = () => loadTradingView(document.getElementById("tickerSelect").value);
 
-// Lancement initial
 document.getElementById("apply").click();
 </script>
 </body>
