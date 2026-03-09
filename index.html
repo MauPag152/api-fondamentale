@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Analyse Fondamentale Bourse</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
+        table { border-collapse: collapse; width: 100%; background: white; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        th { background-color: #eee; }
+        .controls { margin-bottom: 20px; }
+        input { padding: 8px; width: 150px; text-transform: uppercase; }
+        button { padding: 8px 15px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <h2>Analyse Fondamentale - Maurice</h2>
+
+    <div class="controls">
+        <input type="text" id="tickerInput" placeholder="Ex: TD.TO ou AAPL">
+        <button onclick="fetchData()">Auto-remplir</button>
+    </div>
+
+    <table id="resultTable">
+        <thead>
+            <tr>
+                <th>Critère</th>
+                <th>Valeur</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Nom de l'entreprise</td><td id="name">-</td></tr>
+            <tr><td>Secteur</td><td id="sector">-</td></tr>
+            <tr><td>P/E Ratio</td><td id="pe">-</td></tr>
+            <tr><td>ROE (%)</td><td id="roe">-</td></tr>
+            <tr><td>Dette / Équité</td><td id="debtEquity">-</td></tr>
+            <tr><td>Marge Bénéficiaire (%)</td><td id="profitMargin">-</td></tr>
+            <tr><td>Croissance CA (%/an)</td><td id="revenueGrowth">-</td></tr>
+            <tr><td>Free Cash Flow Yield</td><td id="fcfYield">-</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        async function fetchData() {
+            const ticker = document.getElementById('tickerInput').value.trim();
+            if (!ticker) return alert("Entrez un symbole boursier");
+
+            const btn = document.querySelector('button');
+            btn.innerText = "Chargement...";
+
+            try {
+                // On appelle votre API Vercel sécurisée
+                const response = await fetch(`/api/get-fundamentals?ticker=${ticker}`);
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error);
+
+                const r = data.ratios;
+                const p = data.profile;
+
+                document.getElementById('name').innerText = p.companyName || "N/A";
+                document.getElementById('sector').innerText = p.sector || "N/A";
+                document.getElementById('pe').innerText = r.peRatioTTM ? r.peRatioTTM.toFixed(2) : "N/A";
+                document.getElementById('roe').innerText = r.returnOnEquityTTM ? (r.returnOnEquityTTM * 100).toFixed(2) + "%" : "N/A";
+                document.getElementById('debtEquity').innerText = r.debtToEquityTTM ? r.debtToEquityTTM.toFixed(2) : "N/A";
+                document.getElementById('profitMargin').innerText = r.netProfitMarginTTM ? (r.netProfitMarginTTM * 100).toFixed(2) + "%" : "N/A";
+                
+                // Ces données peuvent varier selon l'API
+                document.getElementById('revenueGrowth').innerText = r.dividendYieldTTM ? (r.dividendYieldTTM * 100).toFixed(2) + "% (Div)" : "N/A";
+                document.getElementById('fcfYield').innerText = r.freeCashFlowYieldTTM ? (r.freeCashFlowYieldTTM * 100).toFixed(2) + "%" : "N/A";
+
+            } catch (error) {
+                console.error(error);
+                alert("Erreur lors de la récupération des données.");
+            } finally {
+                btn.innerText = "Auto-remplir";
+            }
+        }
+    </script>
+</body>
+</html>
