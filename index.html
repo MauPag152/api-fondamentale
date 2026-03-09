@@ -1,28 +1,204 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Analyse Bourse Maurice — Multi-actions API</title>
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#0f1b33; --text:#e7eefc; --muted:#a9b7d6;
+      --border:#233357; --accent:#1a3a6b; --link:#8ab4ff;
+      --g:#19c37d; --o:#f59e0b; --r:#ef4444;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: system-ui, Segoe UI, Arial, sans-serif;
+    }
+    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
+    .wrap{max-width:1350px;margin:20px auto;padding:0 14px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin:12px 0}
+    h1{font-size:18px;margin:0 0 10px}
+    h2{font-size:14px;margin:0 0 10px;color:var(--muted)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    input,button,select,textarea{background:#0b1730;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+    input,select{font-family:var(--mono)}
+    textarea{width:100%;min-height:76px;font-family:var(--mono)}
+    button{cursor:pointer;background:var(--accent);font-weight:650; border:none;}
+    button:hover{background:#234a86}
+    .btn-api { background: #089981; }
+    .btn-api:hover { background: #067d69; }
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+    .field{background:#0b1730;border:1px solid #1e2d4a;border-radius:12px;padding:10px}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    .tv{height:520px; border-radius:12px; overflow:hidden;}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0b1730;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:12.5px}
+    .badge{display:inline-block;border:1px solid var(--border);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted)}
+    .sticky{position:sticky;top:0;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--border);z-index:3}
+    .split{display:grid;grid-template-columns:1fr;gap:12px}
+    @media (min-width: 980px){ .split{grid-template-columns:1.1fr .9fr;} }
+    .miniBtn{padding:8px 10px;font-size:13px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="sticky">
+    <div class="row">
+      <div style="font-weight:800">ANALYSE MULTI-ACTIONS (API FMP)</div>
+      <div style="flex:1"></div>
+      <button id="genAll">Générer Markdown (tous)</button>
+      <button id="copy">Copier Markdown</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h1>1) Liste de tickers (Saisissez vos actions ici)</h1>
+    <div class="hint" style="font-size:12px; color:var(--muted); margin-bottom:8px;">
+        Séparez les symboles par des virgules. Exemple: AAPL, TSLA, NVDA, BTCUSD...
+    </div>
+    <textarea id="tickersInput">NVDA, AAPL, GOOG, MSFT, AMZN</textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="apply">Appliquer la liste</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h1>2) Sélection et Automatisation</h1>
+    <div class="row">
+      <select id="tickerSelect"></select>
+      <button id="autoFillBtn" class="miniBtn btn-api">✨ AUTO-REMPLIR VIA API</button>
+      <button id="loadTv" class="miniBtn">Charger Graphique</button>
+      <span id="activeInfo" class="badge">—</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Graphique TradingView</h2>
+    <div id="tv" class="tv"></div>
+  </div>
+
+  <div class="card">
+    <h1>3) Ratios Fondamentaux</h1>
+    <div class="split">
+      <div>
+        <div class="grid">
+          <div class="field"><label>Secteur</label><input id="sector" /></div>
+          <div class="field"><label>P/E</label><input id="pe" /></div>
+          <div class="field"><label>PEG</label><input id="peg" /></div>
+          <div class="field"><label>ROE (%)</label><input id="roe5y" /></div>
+          <div class="field"><label>Quick Ratio</label><input id="quick" /></div>
+          <div class="field"><label>Dette/Équité</label><input id="de" /></div>
+          <div class="field"><label>Marge nette</label><input id="netMargin" /></div>
+          <div class="field"><label>EV/EBITDA</label><input id="evEbitda" /></div>
+          <div class="field"><label>Couverture intérêts</label><input id="intCov" /></div>
+          <div class="field"><label>Croissance CA (%)</label><input id="revCagr" /></div>
+          <div class="field"><label>FCF Yield</label><input id="fcfYield" /></div>
+          <div class="field"><label>Payout Ratio</label><input id="payout" /></div>
+        </div>
+        <div class="row" style="margin-top:15px">
+          <button id="saveActive">Enregistrer ce ticker</button>
+          <div id="score" class="badge">Score: —</div>
+        </div>
+      </div>
+      <div class="card" style="margin:0">
+        <h2>Notes & Analyse Qualitative</h2>
+        <textarea id="notes" style="min-height:200px"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h1>4) Rapport Markdown Final</h1>
+    <pre id="md">En attente de génération...</pre>
+  </div>
+</div>
+
 <script>
-async function fetchData() {
-    const ticker = document.getElementById('tickerInput').value.trim();
-    if (!ticker) return alert("Entrez un symbole");
+const LS_KEY = "fa_multi_tickers_v1";
+const KEYS = ["pe","peg","roe5y","quick","de","netMargin","evEbitda","intCov","revCagr","fcfYield","payout"];
+
+/* --- LOGIQUE API VIA VERCEL --- */
+async function autoFillAPI() {
+    const symbol = document.getElementById("tickerSelect").value.split(':').pop();
+    const btn = document.getElementById("autoFillBtn");
+    btn.innerText = "⏳ Récupération...";
 
     try {
-        const response = await fetch(`/api/get-fundamentals?ticker=${ticker}`);
+        // Appelle ton moteur Vercel au lieu de FMP en direct
+        const response = await fetch(`/api/get-fundamentals?ticker=${symbol}`);
         const data = await response.json();
-        const r = data.ratios || {};
-        const p = data.profile || {};
-
-        // Mapping des données vers vos cases de l'image e69cde.png
-        document.getElementById('secteur').innerText = p.sector || "N/A";
-        document.getElementById('pe').innerText = r.peRatioTTM ? r.peRatioTTM.toFixed(2) : "N/A";
-        document.getElementById('peg').innerText = r.pegRatioTTM ? r.pegRatioTTM.toFixed(2) : "N/A";
-        document.getElementById('roe5').innerText = r.returnOnEquityTTM ? (r.returnOnEquityTTM * 100).toFixed(2) + "%" : "N/A";
-        document.getElementById('quickRatio').innerText = r.quickRatioTTM ? r.quickRatioTTM.toFixed(2) : "N/A";
-        document.getElementById('detteEquite').innerText = r.debtToEquityTTM ? r.debtToEquityTTM.toFixed(2) : "N/A";
-        document.getElementById('margeNette').innerText = r.netProfitMarginTTM ? (r.netProfitMarginTTM * 100).toFixed(2) + "%" : "N/A";
-        document.getElementById('evEbitda').innerText = r.enterpriseValueOverEBITDATTM ? r.enterpriseValueOverEBITDATTM.toFixed(2) : "N/A";
-        document.getElementById('couvertureInterets').innerText = r.interestCoverageTTM ? r.interestCoverageTTM.toFixed(2) : "N/A";
-        document.getElementById('croissanceCA').innerText = r.revenueGrowthTTM ? (r.revenueGrowthTTM * 100).toFixed(2) + "%" : "N/A";
-
-    } catch (error) {
-        console.error("Erreur:", error);
+        
+        if (data.ratios) {
+            const r = data.ratios;
+            const p = data.profile || {};
+            
+            document.getElementById("sector").value = p.sector || "N/A";
+            document.getElementById("pe").value = r.peRatioTTM?.toFixed(2) || "N/A";
+            document.getElementById("peg").value = r.pegRatioTTM?.toFixed(2) || "N/A";
+            document.getElementById("roe5y").value = r.returnOnEquityTTM ? (r.returnOnEquityTTM * 100).toFixed(1) + "%" : "N/A";
+            document.getElementById("quick").value = r.quickRatioTTM?.toFixed(2) || "N/A";
+            document.getElementById("de").value = r.debtToEquityTTM?.toFixed(2) || "N/A";
+            document.getElementById("netMargin").value = r.netProfitMarginTTM ? (r.netProfitMarginTTM * 100).toFixed(1) + "%" : "N/A";
+            document.getElementById("evEbitda").value = r.enterpriseValueOverEBITDATTM?.toFixed(2) || "N/A";
+            document.getElementById("intCov").value = r.interestCoverageTTM?.toFixed(2) || "N/A";
+            document.getElementById("revCagr").value = r.revenueGrowthTTM ? (r.revenueGrowthTTM * 100).toFixed(1) + "%" : "N/A";
+            document.getElementById("fcfYield").value = r.freeCashFlowYieldTTM ? (r.freeCashFlowYieldTTM * 100).toFixed(1) + "%" : "N/A";
+            document.getElementById("payout").value = r.payoutRatioTTM ? (r.payoutRatioTTM * 100).toFixed(1) + "%" : "N/A";
+        }
+    } catch (e) { 
+        alert("Erreur de connexion au moteur Vercel."); 
+        console.error(e);
     }
+    btn.innerText = "✨ AUTO-REMPLIR VIA API";
 }
+
+/* --- LOGIQUE GRAPHIQUE --- */
+function loadTradingView(symbol){
+  const el = document.getElementById("tv"); el.innerHTML = "";
+  const s = document.createElement("script");
+  s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+  s.async = true;
+  // Nettoyer le symbole pour TradingView
+  const cleanSymbol = symbol.includes(':') ? symbol : symbol.split('.')[0];
+  s.innerHTML = JSON.stringify({ "autosize": true, "symbol": cleanSymbol, "interval": "D", "theme": "dark", "style": "1", "locale": "fr" });
+  el.appendChild(s);
+}
+
+function loadState(){ return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
+function saveState(state){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+function fillForm(symbol){
+  const state = loadState();
+  const data = state[symbol] || { sector:"", notes:"", metrics:{} };
+  document.getElementById("sector").value = data.sector || "";
+  document.getElementById("notes").value = data.notes || "";
+  KEYS.forEach(k => { document.getElementById(k).value = data.metrics[k] || ""; });
+  loadTradingView(symbol);
+  document.getElementById("activeInfo").innerText = "Actif: " + symbol;
+}
+
+/* --- ÉVÉNEMENTS --- */
+document.getElementById("apply").onclick = () => {
+  const list = document.getElementById("tickersInput").value.split(',').map(s => s.trim().toUpperCase());
+  const select = document.getElementById("tickerSelect");
+  select.innerHTML = "";
+  list.forEach(s => { const opt = document.createElement("option"); opt.value = s; opt.text = s; select.add(opt); });
+  if(list.length) fillForm(list[0]);
+};
+
+document.getElementById("saveActive").onclick = () => {
+  const sym = document.getElementById("tickerSelect").value;
+  const state = loadState();
+  state[sym] = { sector: document.getElementById("sector").value, notes: document.getElementById("notes").value, metrics: {} };
+  KEYS.forEach(k => { state[sym].metrics[k] = document.getElementById(k).value; });
+  saveState(state);
+  alert("Sauvegardé !");
+};
+
+document.getElementById("tickerSelect").onchange = (e) => fillForm(e.target.value);
+document.getElementById("autoFillBtn").onclick = autoFillAPI;
+document.getElementById("loadTv").onclick = () => loadTradingView(document.getElementById("tickerSelect").value);
+
+// Lancement initial
+document.getElementById("apply").click();
 </script>
+</body>
+</html>
