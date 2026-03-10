@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Station d'Analyse Maurice - Fondamental & Graphique</title>
+  <title>Station d'Analyse Maurice - Version Complète</title>
   <style>
     body { background:#0b1220; color:#e7eefc; font-family:sans-serif; padding:20px; }
     .card { background:#0f1b33; border:1px solid #233357; border-radius:12px; padding:15px; margin-bottom:15px; }
@@ -10,6 +10,7 @@
     button { cursor:pointer; padding:12px; border-radius:8px; border:none; font-weight:bold; width:100%; margin-top:5px; }
     .btn-api { background:#089981; color:white; }
     .btn-save { background:#1a3a6b; color:white; }
+    .btn-key { background:#4b5563; color:white; font-size:12px; width:auto; padding:0 15px; }
     .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; font-size: 13px; }
     label { display:block; margin-bottom:5px; font-size:13px; color:#94a3b8; font-weight:bold; }
@@ -21,11 +22,20 @@
 <body>
 
   <div class="card">
-    <h2>1) Recherche & Graphique</h2>
+    <h2>1) Configuration & Sécurité</h2>
+    <label>MA CLÉ API FINNHUB :</label>
+    <div style="display:flex; gap:10px;">
+      <input id="apiKey" type="password" placeholder="Collez votre clé ici" style="flex-grow:1; margin-bottom:0;">
+      <button id="saveKey" class="btn-key">💾 SAUVEGARDER LA CLÉ</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2) Recherche & Graphique</h2>
     <label>Ticker (Ex: NVDA, MU, AAPL) :</label>
     <div style="display:flex; gap:10px;">
-        <input id="tickerInput" type="text" value="NVDA" style="flex-grow:1;">
-        <button id="btnGo" class="btn-api" style="width:auto; padding: 0 20px;">🚀 ANALYSER</button>
+        <input id="tickerInput" type="text" value="NVDA" style="flex-grow:1; margin-bottom:0;">
+        <button id="btnGo" class="btn-api" style="width:auto; padding: 0 25px;">🚀 ANALYSER</button>
     </div>
     <div id="chart-container">
         <div id="tradingview_widget"></div>
@@ -33,25 +43,25 @@
   </div>
 
   <div class="card">
-    <h2>2) Score Fondamental (Seuils de Maurice)</h2>
+    <h2>3) Score Fondamental (Critères de Maurice)</h2>
     <div class="grid">
       <div><label>P/E (<20)</label><input id="pe" readonly></div>
       <div><label>PEG (<1.2)</label><input id="peg" readonly></div>
-      <div><label>ROE (>12%)</label><input id="roe" readonly></div>
-      <div><label>Quick (>1)</label><input id="quick" readonly></div>
+      <div><label>ROE 5 ans (>12%)</label><input id="roe" readonly></div>
+      <div><label>Quick Ratio (>1)</label><input id="quick" readonly></div>
       <div><label>Dette/Éq (<0.5)</label><input id="de" readonly></div>
-      <div><label>Marge (>10%)</label><input id="margin" readonly></div>
-      <div><label>Revenus (>10%)</label><input id="revGrow" readonly></div>
+      <div><label>Marge Nette (>10%)</label><input id="margin" readonly></div>
+      <div><label>Croissance Rev. (>10%)</label><input id="revGrow" readonly></div>
       <div><label>Dividende (>2%)</label><input id="divYield" readonly></div>
     </div>
     <button id="saveData" class="btn-save">➕ AJOUTER AU COMPARATEUR</button>
   </div>
 
   <div class="card">
-    <h2>3) Top 5 - Classement de Qualité</h2>
+    <h2>4) Top 5 - Classement de Qualité</h2>
     <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px; width:100%;">📊 CLASSER LES ACTIONS</button>
-    <pre id="md">Analysez pour comparer...</pre>
-    <button id="clearAll" style="background:#450a0a; color:white; font-size:11px; padding:5px; width:auto;">🗑️ RESET</button>
+    <pre id="md">En attente d'analyse...</pre>
+    <button id="clearAll" style="background:#450a0a; color:white; font-size:11px; padding:5px; width:auto; border-radius:4px;">🗑️ RÉINITIALISER LA LISTE</button>
   </div>
 
 <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -60,7 +70,20 @@
   const DATA_STORAGE = "maurice_comparator_v3";
   let lastScore = 0;
 
-  // Fonction pour charger le graphique
+  // Initialisation au chargement
+  window.onload = () => {
+    const savedKey = localStorage.getItem(KEY_STORAGE);
+    if(savedKey) document.getElementById("apiKey").value = savedKey;
+    loadChart("NVDA");
+  };
+
+  // Sauvegarde de la clé
+  document.getElementById("saveKey").onclick = () => {
+    const key = document.getElementById("apiKey").value;
+    localStorage.setItem(KEY_STORAGE, key);
+    alert("Clé sauvegardée dans votre navigateur !");
+  };
+
   function loadChart(symbol) {
     new TradingView.widget({
       "width": "100%",
@@ -79,12 +102,11 @@
     });
   }
 
-  // Charger le graphique par défaut (NVDA)
-  window.onload = () => { loadChart("NVDA"); };
-
   function setStatus(id, val, isBetterHigher, threshold) {
     const el = document.getElementById(id);
-    if (val === "N/A" || !val) { el.value = "N/A"; el.className = ""; return 1; }
+    if (val === "N/A" || val === null || val === undefined) { 
+      el.value = "N/A"; el.className = ""; return 1; 
+    }
     const num = parseFloat(val);
     el.value = (id === "roe" || id === "margin" || id === "revGrow" || id === "divYield") ? num.toFixed(1) + "%" : num.toFixed(2);
     const isOk = isBetterHigher ? num > threshold : num < threshold;
@@ -93,14 +115,16 @@
   }
 
   document.getElementById("btnGo").onclick = async () => {
+    const key = document.getElementById("apiKey").value;
     const sym = document.getElementById("tickerInput").value.toUpperCase();
-    const key = "votre_cle_ici"; // Remplacez par votre clé Finnhub réelle
-    
-    loadChart(sym); // Met à jour le graphique
+    if(!key) return alert("Veuillez entrer ou sauvegarder votre clé API.");
+
+    loadChart(sym);
 
     try {
       const res = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${sym}&metric=all&token=${key}`);
       const d = await res.json();
+      
       if(d.metric) {
         const m = d.metric;
         lastScore = 0;
@@ -112,8 +136,11 @@
         lastScore += setStatus("margin", m.netProfitMarginTTM, true, 10);
         lastScore += setStatus("revGrow", m.revenueGrowthTTMYoy, true, 10);
         lastScore += setStatus("divYield", m.dividendYieldIndicatedAnnual, true, 2);
+        alert("Analyse de " + sym + " terminée. Score: " + lastScore + "/16");
+      } else {
+        alert("Erreur: Ticker non trouvé ou limite de clé atteinte.");
       }
-    } catch (e) { console.log("Erreur API"); }
+    } catch (e) { alert("Erreur de connexion à Finnhub."); }
   };
 
   document.getElementById("saveData").onclick = () => {
@@ -122,7 +149,7 @@
     db.push({ name: sym, score: lastScore });
     if(db.length > 5) db.shift();
     localStorage.setItem(DATA_STORAGE, JSON.stringify(db));
-    alert(sym + " ajouté !");
+    alert(sym + " ajouté au comparateur !");
   };
 
   document.getElementById("gen").onclick = () => {
@@ -137,8 +164,10 @@
   };
 
   document.getElementById("clearAll").onclick = () => {
-    localStorage.removeItem(DATA_STORAGE);
-    location.reload();
+    if(confirm("Voulez-vous vraiment vider votre liste de comparaison ?")) {
+      localStorage.removeItem(DATA_STORAGE);
+      location.reload();
+    }
   };
 </script>
 </body>
