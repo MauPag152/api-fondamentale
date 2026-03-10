@@ -2,120 +2,143 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Tableau Analyse Fondamentale - Maurice</title>
+  <title>Station d'Analyse Maurice - Fondamental & Graphique</title>
   <style>
     body { background:#0b1220; color:#e7eefc; font-family:sans-serif; padding:20px; }
     .card { background:#0f1b33; border:1px solid #233357; border-radius:12px; padding:15px; margin-bottom:15px; }
-    input, select { background:#0b1730; color:white; border:1px solid #233357; padding:10px; border-radius:8px; width:100%; margin-bottom:10px; font-size:16px; }
+    input { background:#0b1730; color:white; border:1px solid #233357; padding:10px; border-radius:8px; width:100%; margin-bottom:10px; font-size:16px; box-sizing: border-box; }
     button { cursor:pointer; padding:12px; border-radius:8px; border:none; font-weight:bold; width:100%; margin-top:5px; }
     .btn-api { background:#089981; color:white; }
     .btn-save { background:#1a3a6b; color:white; }
-    .btn-key { background:#4b5563; color:white; font-size:12px; width:auto; padding:8px 15px; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; font-size: 14px; }
-    label { display:block; margin-bottom:5px; font-size:14px; color:#94a3b8; }
-    .status-ok { color: #089981; font-weight: bold; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; font-size: 13px; }
+    label { display:block; margin-bottom:5px; font-size:13px; color:#94a3b8; font-weight:bold; }
+    .conforme { background: #064e3b !important; color: #ecfdf5 !important; }
+    .non-conforme { background: #450a0a !important; color: #fef2f2 !important; }
+    #chart-container { height: 400px; margin-top: 10px; border-radius: 8px; overflow: hidden; border: 1px solid #233357; }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h2>1) Configuration & Ticker</h2>
-    <label>MA CLÉ API FINNHUB :</label>
+    <h2>1) Recherche & Graphique</h2>
+    <label>Ticker (Ex: NVDA, MU, AAPL) :</label>
     <div style="display:flex; gap:10px;">
-      <input id="apiKey" type="password" placeholder="Collez votre clé ici" style="flex-grow:1;">
-      <button id="saveKey" class="btn-key">💾 SAUVEGARDER LA CLÉ</button>
+        <input id="tickerInput" type="text" value="NVDA" style="flex-grow:1;">
+        <button id="btnGo" class="btn-api" style="width:auto; padding: 0 20px;">🚀 ANALYSER</button>
     </div>
-    
-    <label>Ticker (Ex: NVDA, AAPL, MU) :</label>
-    <input id="tickerInput" type="text" placeholder="Entrez le ticker..." value="NVDA">
-    <button id="btnGo" class="btn-api">🚀 RÉCUPÉRER LES 6 RATIOS</button>
+    <div id="chart-container">
+        <div id="tradingview_widget"></div>
+    </div>
   </div>
 
   <div class="card">
-    <h2>2) Résultats selon vos critères</h2>
+    <h2>2) Score Fondamental (Seuils de Maurice)</h2>
     <div class="grid">
-      <div><label>P/E Ratio</label><input id="pe" readonly></div>
-      <div><label>PEG Ratio</label><input id="peg" readonly></div>
-      <div><label>ROE (5 ans)</label><input id="roe" readonly></div>
-      <div><label>Quick Ratio</label><input id="quick" readonly></div>
-      <div><label>Dette / Équité</label><input id="de" readonly></div>
-      <div><label>Marge de profit net</label><input id="margin" readonly></div>
+      <div><label>P/E (<20)</label><input id="pe" readonly></div>
+      <div><label>PEG (<1.2)</label><input id="peg" readonly></div>
+      <div><label>ROE (>12%)</label><input id="roe" readonly></div>
+      <div><label>Quick (>1)</label><input id="quick" readonly></div>
+      <div><label>Dette/Éq (<0.5)</label><input id="de" readonly></div>
+      <div><label>Marge (>10%)</label><input id="margin" readonly></div>
+      <div><label>Revenus (>10%)</label><input id="revGrow" readonly></div>
+      <div><label>Dividende (>2%)</label><input id="divYield" readonly></div>
     </div>
-    <button id="saveData" class="btn-save">💾 MÉMORISER POUR LE RAPPORT</button>
+    <button id="saveData" class="btn-save">➕ AJOUTER AU COMPARATEUR</button>
   </div>
 
   <div class="card">
-    <h2>3) Rapport Final (Format Tableau)</h2>
-    <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px;">GÉNÉRER LE TABLEAU DE SYNTHÈSE</button>
-    <pre id="md">En attente des données...</pre>
+    <h2>3) Top 5 - Classement de Qualité</h2>
+    <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px; width:100%;">📊 CLASSER LES ACTIONS</button>
+    <pre id="md">Analysez pour comparer...</pre>
+    <button id="clearAll" style="background:#450a0a; color:white; font-size:11px; padding:5px; width:auto;">🗑️ RESET</button>
   </div>
 
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 <script>
   const KEY_STORAGE = "finnhub_key_maurice";
-  const DATA_STORAGE = "stock_data_6_ratios";
+  const DATA_STORAGE = "maurice_comparator_v3";
+  let lastScore = 0;
 
-  window.onload = () => {
-    const savedKey = localStorage.getItem(KEY_STORAGE);
-    if(savedKey) document.getElementById("apiKey").value = savedKey;
-  };
+  // Fonction pour charger le graphique
+  function loadChart(symbol) {
+    new TradingView.widget({
+      "width": "100%",
+      "height": 400,
+      "symbol": symbol,
+      "interval": "D",
+      "timezone": "Etc/UTC",
+      "theme": "dark",
+      "style": "1",
+      "locale": "fr",
+      "toolbar_bg": "#f1f3f6",
+      "enable_publishing": false,
+      "hide_side_toolbar": false,
+      "allow_symbol_change": true,
+      "container_id": "tradingview_widget"
+    });
+  }
 
-  document.getElementById("saveKey").onclick = () => {
-    localStorage.setItem(KEY_STORAGE, document.getElementById("apiKey").value);
-    alert("Clé sauvegardée !");
-  };
+  // Charger le graphique par défaut (NVDA)
+  window.onload = () => { loadChart("NVDA"); };
+
+  function setStatus(id, val, isBetterHigher, threshold) {
+    const el = document.getElementById(id);
+    if (val === "N/A" || !val) { el.value = "N/A"; el.className = ""; return 1; }
+    const num = parseFloat(val);
+    el.value = (id === "roe" || id === "margin" || id === "revGrow" || id === "divYield") ? num.toFixed(1) + "%" : num.toFixed(2);
+    const isOk = isBetterHigher ? num > threshold : num < threshold;
+    el.className = isOk ? "conforme" : "non-conforme";
+    return isOk ? 2 : 0;
+  }
 
   document.getElementById("btnGo").onclick = async () => {
-    const key = document.getElementById("apiKey").value;
     const sym = document.getElementById("tickerInput").value.toUpperCase();
-    if(!key) return alert("Veuillez entrer votre clé.");
+    const key = "votre_cle_ici"; // Remplacez par votre clé Finnhub réelle
+    
+    loadChart(sym); // Met à jour le graphique
 
-    document.getElementById("btnGo").innerText = "⏳ Analyse en cours...";
     try {
-      const url = `https://finnhub.io/api/v1/stock/metric?symbol=${sym}&metric=all&token=${key}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data && data.metric) {
-        const m = data.metric;
-        document.getElementById("pe").value = m.peTTM ? m.peTTM.toFixed(2) : "N/A";
-        document.getElementById("peg").value = m.peGrowthTTM ? m.peGrowthTTM.toFixed(2) : "N/A";
-        document.getElementById("roe").value = m.roe5Y ? m.roe5Y.toFixed(1) + "%" : "N/A";
-        document.getElementById("quick").value = m.quickRatioQuarterly ? m.quickRatioQuarterly.toFixed(2) : "N/A";
-        document.getElementById("de").value = m.totalDebtTotalEquityQuarterly ? m.totalDebtTotalEquityQuarterly.toFixed(2) : "N/A";
-        document.getElementById("margin").value = m.netProfitMarginTTM ? m.netProfitMarginTTM.toFixed(1) + "%" : "N/A";
-        alert("Succès pour " + sym);
-      } else {
-        alert("Erreur: Vérifiez le ticker ou la clé.");
+      const res = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${sym}&metric=all&token=${key}`);
+      const d = await res.json();
+      if(d.metric) {
+        const m = d.metric;
+        lastScore = 0;
+        lastScore += setStatus("pe", m.peTTM, false, 20);
+        lastScore += setStatus("peg", m.peGrowthTTM, false, 1.2);
+        lastScore += setStatus("roe", m.roe5Y, true, 12);
+        lastScore += setStatus("quick", m.quickRatioQuarterly, true, 1.0);
+        lastScore += setStatus("de", m.totalDebtTotalEquityQuarterly, false, 0.5);
+        lastScore += setStatus("margin", m.netProfitMarginTTM, true, 10);
+        lastScore += setStatus("revGrow", m.revenueGrowthTTMYoy, true, 10);
+        lastScore += setStatus("divYield", m.dividendYieldIndicatedAnnual, true, 2);
       }
-    } catch (e) { alert("Erreur de connexion."); }
-    document.getElementById("btnGo").innerText = "🚀 RÉCUPÉRER LES 6 RATIOS";
+    } catch (e) { console.log("Erreur API"); }
   };
 
   document.getElementById("saveData").onclick = () => {
-    const db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "{}");
+    const db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "[]");
     const sym = document.getElementById("tickerInput").value.toUpperCase();
-    db[sym] = {
-      pe: document.getElementById("pe").value,
-      peg: document.getElementById("peg").value,
-      roe: document.getElementById("roe").value,
-      quick: document.getElementById("quick").value,
-      de: document.getElementById("de").value,
-      margin: document.getElementById("margin").value
-    };
+    db.push({ name: sym, score: lastScore });
+    if(db.length > 5) db.shift();
     localStorage.setItem(DATA_STORAGE, JSON.stringify(db));
-    alert(sym + " ajouté à la liste.");
+    alert(sym + " ajouté !");
   };
 
   document.getElementById("gen").onclick = () => {
-    const db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "{}");
-    let md = "### TABLEAU ANALYSE FONDAMENTALE (MAURICE)\n\n";
-    md += "| TICKER | P/E | PEG | ROE (5a) | Quick | Dette/Éq | Marge |\n";
-    md += "|:---|:---:|:---:|:---:|:---:|:---:|:---:|\n";
-    for(let s in db) {
-      md += `| **${s}** | ${db[s].pe} | ${db[s].peg} | ${db[s].roe} | ${db[s].quick} | ${db[s].de} | ${db[s].margin} |\n`;
-    }
+    let db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "[]");
+    db.sort((a,b) => b.score - a.score);
+    let md = "| RANG | TICKER | SCORE / 16 | QUALITÉ |\n|:---:|:---|:---:|:---:|\n";
+    db.forEach((item, i) => {
+      let q = item.score >= 12 ? "🟢 EXCELLENT" : (item.score >= 8 ? "🟡 CORRECT" : "🔴 À ÉVITER");
+      md += `| #${i+1} | ${item.name} | ${item.score} | ${q} |\n`;
+    });
     document.getElementById("md").innerText = md;
+  };
+
+  document.getElementById("clearAll").onclick = () => {
+    localStorage.removeItem(DATA_STORAGE);
+    location.reload();
   };
 </script>
 </body>
