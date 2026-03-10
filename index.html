@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Analyse Bourse Maurice - Standard</title>
+  <title>Tableau Analyse Fondamentale - Maurice</title>
   <style>
     body { background:#0b1220; color:#e7eefc; font-family:sans-serif; padding:20px; }
     .card { background:#0f1b33; border:1px solid #233357; border-radius:12px; padding:15px; margin-bottom:15px; }
@@ -12,8 +12,9 @@
     .btn-save { background:#1a3a6b; color:white; }
     .btn-key { background:#4b5563; color:white; font-size:12px; width:auto; padding:8px 15px; }
     .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; }
+    pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; font-size: 14px; }
     label { display:block; margin-bottom:5px; font-size:14px; color:#94a3b8; }
+    .status-ok { color: #089981; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -26,95 +27,93 @@
       <button id="saveKey" class="btn-key">💾 SAUVEGARDER LA CLÉ</button>
     </div>
     
-    <label>Action à analyser :</label>
-    <select id="tickerSelect">
-      <option value="NVDA">NVDA</option>
-      <option value="AAPL">AAPL</option>
-      <option value="MSFT">MSFT</option>
-      <option value="GOOGL">GOOGL</option>
-      <option value="AMZN">AMZN</option>
-    </select>
-    <button id="btnGo" class="btn-api">🚀 RÉCUPÉRER LES DONNÉES EN DIRECT</button>
+    <label>Ticker (Ex: NVDA, AAPL, MU) :</label>
+    <input id="tickerInput" type="text" placeholder="Entrez le ticker..." value="NVDA">
+    <button id="btnGo" class="btn-api">🚀 RÉCUPÉRER LES 6 RATIOS</button>
   </div>
 
   <div class="card">
-    <h2>2) Résultats de l'Analyse</h2>
+    <h2>2) Résultats selon vos critères</h2>
     <div class="grid">
-      <div><label>P/E</label><input id="pe" readonly></div>
-      <div><label>ROE (%)</label><input id="roe" readonly></div>
-      <div><label>Marge (%)</label><input id="margin" readonly></div>
-      <div><label>Dette/Équité</label><input id="de" readonly></div>
+      <div><label>P/E Ratio</label><input id="pe" readonly></div>
+      <div><label>PEG Ratio</label><input id="peg" readonly></div>
+      <div><label>ROE (5 ans)</label><input id="roe" readonly></div>
+      <div><label>Quick Ratio</label><input id="quick" readonly></div>
+      <div><label>Dette / Équité</label><input id="de" readonly></div>
+      <div><label>Marge de profit net</label><input id="margin" readonly></div>
     </div>
-    <button id="saveData" class="btn-save">💾 MÉMORISER LE TITRE</button>
+    <button id="saveData" class="btn-save">💾 MÉMORISER POUR LE RAPPORT</button>
   </div>
 
   <div class="card">
-    <h2>3) Rapport Markdown Final</h2>
-    <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px;">GÉNÉRER LE TABLEAU</button>
-    <pre id="md">En attente...</pre>
+    <h2>3) Rapport Final (Format Tableau)</h2>
+    <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px;">GÉNÉRER LE TABLEAU DE SYNTHÈSE</button>
+    <pre id="md">En attente des données...</pre>
   </div>
 
 <script>
   const KEY_STORAGE = "finnhub_key_maurice";
-  const DATA_STORAGE = "stock_data_maurice";
+  const DATA_STORAGE = "stock_data_6_ratios";
 
-  // Charger la clé automatiquement au démarrage
   window.onload = () => {
     const savedKey = localStorage.getItem(KEY_STORAGE);
-    if(savedKey) {
-      document.getElementById("apiKey").value = savedKey;
-    }
+    if(savedKey) document.getElementById("apiKey").value = savedKey;
   };
 
-  // Bouton pour sauvegarder la clé dans le navigateur
   document.getElementById("saveKey").onclick = () => {
-    const key = document.getElementById("apiKey").value;
-    localStorage.setItem(KEY_STORAGE, key);
-    alert("Clé sauvegardée dans ce navigateur !");
+    localStorage.setItem(KEY_STORAGE, document.getElementById("apiKey").value);
+    alert("Clé sauvegardée !");
   };
 
   document.getElementById("btnGo").onclick = async () => {
     const key = document.getElementById("apiKey").value;
-    const sym = document.getElementById("tickerSelect").value;
+    const sym = document.getElementById("tickerInput").value.toUpperCase();
     if(!key) return alert("Veuillez entrer votre clé.");
 
-    document.getElementById("btnGo").innerText = "⏳ Recherche...";
+    document.getElementById("btnGo").innerText = "⏳ Analyse en cours...";
     try {
       const url = `https://finnhub.io/api/v1/stock/metric?symbol=${sym}&metric=all&token=${key}`;
       const response = await fetch(url);
       const data = await response.json();
 
       if (data && data.metric) {
-        document.getElementById("pe").value = data.metric.peTTM || "N/A";
-        document.getElementById("roe").value = data.metric.roeTTM ? data.metric.roeTTM.toFixed(1) + "%" : "N/A";
-        document.getElementById("margin").value = data.metric.netProfitMarginTTM ? data.metric.netProfitMarginTTM.toFixed(1) + "%" : "N/A";
-        document.getElementById("de").value = data.metric.totalDebtTotalEquityQuarterly || "N/A";
-        alert("Données reçues pour " + sym);
+        const m = data.metric;
+        document.getElementById("pe").value = m.peTTM ? m.peTTM.toFixed(2) : "N/A";
+        document.getElementById("peg").value = m.peGrowthTTM ? m.peGrowthTTM.toFixed(2) : "N/A";
+        document.getElementById("roe").value = m.roe5Y ? m.roe5Y.toFixed(1) + "%" : "N/A";
+        document.getElementById("quick").value = m.quickRatioQuarterly ? m.quickRatioQuarterly.toFixed(2) : "N/A";
+        document.getElementById("de").value = m.totalDebtTotalEquityQuarterly ? m.totalDebtTotalEquityQuarterly.toFixed(2) : "N/A";
+        document.getElementById("margin").value = m.netProfitMarginTTM ? m.netProfitMarginTTM.toFixed(1) + "%" : "N/A";
+        alert("Succès pour " + sym);
       } else {
-        alert("Erreur: Clé invalide ou limite atteinte.");
+        alert("Erreur: Vérifiez le ticker ou la clé.");
       }
     } catch (e) { alert("Erreur de connexion."); }
-    document.getElementById("btnGo").innerText = "🚀 RÉCUPÉRER LES DONNÉES EN DIRECT";
+    document.getElementById("btnGo").innerText = "🚀 RÉCUPÉRER LES 6 RATIOS";
   };
 
   document.getElementById("saveData").onclick = () => {
     const db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "{}");
-    const sym = document.getElementById("tickerSelect").value;
+    const sym = document.getElementById("tickerInput").value.toUpperCase();
     db[sym] = {
       pe: document.getElementById("pe").value,
+      peg: document.getElementById("peg").value,
       roe: document.getElementById("roe").value,
-      margin: document.getElementById("margin").value,
-      de: document.getElementById("de").value
+      quick: document.getElementById("quick").value,
+      de: document.getElementById("de").value,
+      margin: document.getElementById("margin").value
     };
     localStorage.setItem(DATA_STORAGE, JSON.stringify(db));
-    alert(sym + " mémorisé !");
+    alert(sym + " ajouté à la liste.");
   };
 
   document.getElementById("gen").onclick = () => {
     const db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "{}");
-    let md = "| Ticker | P/E | ROE | Marge | Dette/Éq |\n|---|---|---|---|---|\n";
+    let md = "### TABLEAU ANALYSE FONDAMENTALE (MAURICE)\n\n";
+    md += "| TICKER | P/E | PEG | ROE (5a) | Quick | Dette/Éq | Marge |\n";
+    md += "|:---|:---:|:---:|:---:|:---:|:---:|:---:|\n";
     for(let s in db) {
-      md += `| ${s} | ${db[s].pe} | ${db[s].roe} | ${db[s].margin} | ${db[s].de} |\n`;
+      md += `| **${s}** | ${db[s].pe} | ${db[s].peg} | ${db[s].roe} | ${db[s].quick} | ${db[s].de} | ${db[s].margin} |\n`;
     }
     document.getElementById("md").innerText = md;
   };
