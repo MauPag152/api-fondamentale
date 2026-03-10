@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Analyse Bourse Maurice - Finnhub Pro</title>
+  <title>Analyse Bourse Maurice - Standard</title>
   <style>
     body { background:#0b1220; color:#e7eefc; font-family:sans-serif; padding:20px; }
     .card { background:#0f1b33; border:1px solid #233357; border-radius:12px; padding:15px; margin-bottom:15px; }
@@ -10,6 +10,7 @@
     button { cursor:pointer; padding:12px; border-radius:8px; border:none; font-weight:bold; width:100%; margin-top:5px; }
     .btn-api { background:#089981; color:white; }
     .btn-save { background:#1a3a6b; color:white; }
+    .btn-key { background:#4b5563; color:white; font-size:12px; width:auto; padding:8px 15px; }
     .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; }
     label { display:block; margin-bottom:5px; font-size:14px; color:#94a3b8; }
@@ -18,11 +19,14 @@
 <body>
 
   <div class="card">
-    <h2>1) Configuration Finnhub</h2>
-    <label>MA CLÉ API (Sauvegardée) :</label>
-    <input id="apiKey" type="text" value="VOTRE_CLÉ_ICI">
-    <input id="apiKey" type="text" value="d6o6661r01qu09ci8vagd6o6661r01qu09ci8vb0">
-    <label>Ticker :</label>
+    <h2>1) Configuration & Ticker</h2>
+    <label>MA CLÉ API FINNHUB :</label>
+    <div style="display:flex; gap:10px;">
+      <input id="apiKey" type="password" placeholder="Collez votre clé ici" style="flex-grow:1;">
+      <button id="saveKey" class="btn-key">💾 SAUVEGARDER LA CLÉ</button>
+    </div>
+    
+    <label>Action à analyser :</label>
     <select id="tickerSelect">
       <option value="NVDA">NVDA</option>
       <option value="AAPL">AAPL</option>
@@ -30,35 +34,51 @@
       <option value="GOOGL">GOOGL</option>
       <option value="AMZN">AMZN</option>
     </select>
-    <button id="btnGo" class="btn-api">🚀 RÉCUPÉRER LES DONNÉES</button>
+    <button id="btnGo" class="btn-api">🚀 RÉCUPÉRER LES DONNÉES EN DIRECT</button>
   </div>
 
   <div class="card">
-    <h2>2) Résultats Fondamentaux</h2>
+    <h2>2) Résultats de l'Analyse</h2>
     <div class="grid">
       <div><label>P/E</label><input id="pe" readonly></div>
       <div><label>ROE (%)</label><input id="roe" readonly></div>
-      <div><label>Marge Nette (%)</label><input id="margin" readonly></div>
+      <div><label>Marge (%)</label><input id="margin" readonly></div>
       <div><label>Dette/Équité</label><input id="de" readonly></div>
     </div>
-    <button id="save" class="btn-save">💾 MÉMORISER POUR LE RAPPORT</button>
+    <button id="saveData" class="btn-save">💾 MÉMORISER LE TITRE</button>
   </div>
 
   <div class="card">
-    <h2>3) Rapport Markdown</h2>
+    <h2>3) Rapport Markdown Final</h2>
     <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px;">GÉNÉRER LE TABLEAU</button>
     <pre id="md">En attente...</pre>
   </div>
 
 <script>
-  const LS_KEY = "maurice_finnhub_v1";
+  const KEY_STORAGE = "finnhub_key_maurice";
+  const DATA_STORAGE = "stock_data_maurice";
+
+  // Charger la clé automatiquement au démarrage
+  window.onload = () => {
+    const savedKey = localStorage.getItem(KEY_STORAGE);
+    if(savedKey) {
+      document.getElementById("apiKey").value = savedKey;
+    }
+  };
+
+  // Bouton pour sauvegarder la clé dans le navigateur
+  document.getElementById("saveKey").onclick = () => {
+    const key = document.getElementById("apiKey").value;
+    localStorage.setItem(KEY_STORAGE, key);
+    alert("Clé sauvegardée dans ce navigateur !");
+  };
 
   document.getElementById("btnGo").onclick = async () => {
     const key = document.getElementById("apiKey").value;
     const sym = document.getElementById("tickerSelect").value;
-    if(!key || key === "VOTRE_CLÉ_ICI") return alert("Veuillez entrer votre clé Finnhub.");
-    
-    document.getElementById("btnGo").innerText = "⏳ Chargement...";
+    if(!key) return alert("Veuillez entrer votre clé.");
+
+    document.getElementById("btnGo").innerText = "⏳ Recherche...";
     try {
       const url = `https://finnhub.io/api/v1/stock/metric?symbol=${sym}&metric=all&token=${key}`;
       const response = await fetch(url);
@@ -69,16 +89,16 @@
         document.getElementById("roe").value = data.metric.roeTTM ? data.metric.roeTTM.toFixed(1) + "%" : "N/A";
         document.getElementById("margin").value = data.metric.netProfitMarginTTM ? data.metric.netProfitMarginTTM.toFixed(1) + "%" : "N/A";
         document.getElementById("de").value = data.metric.totalDebtTotalEquityQuarterly || "N/A";
-        alert("Succès !");
+        alert("Données reçues pour " + sym);
       } else {
-        alert("Erreur: Vérifiez votre clé ou la limite d'appels.");
+        alert("Erreur: Clé invalide ou limite atteinte.");
       }
     } catch (e) { alert("Erreur de connexion."); }
-    document.getElementById("btnGo").innerText = "🚀 RÉCUPÉRER LES DONNÉES";
+    document.getElementById("btnGo").innerText = "🚀 RÉCUPÉRER LES DONNÉES EN DIRECT";
   };
 
-  document.getElementById("save").onclick = () => {
-    const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+  document.getElementById("saveData").onclick = () => {
+    const db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "{}");
     const sym = document.getElementById("tickerSelect").value;
     db[sym] = {
       pe: document.getElementById("pe").value,
@@ -86,12 +106,12 @@
       margin: document.getElementById("margin").value,
       de: document.getElementById("de").value
     };
-    localStorage.setItem(LS_KEY, JSON.stringify(db));
+    localStorage.setItem(DATA_STORAGE, JSON.stringify(db));
     alert(sym + " mémorisé !");
   };
 
   document.getElementById("gen").onclick = () => {
-    const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    const db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "{}");
     let md = "| Ticker | P/E | ROE | Marge | Dette/Éq |\n|---|---|---|---|---|\n";
     for(let s in db) {
       md += `| ${s} | ${db[s].pe} | ${db[s].roe} | ${db[s].margin} | ${db[s].de} |\n`;
