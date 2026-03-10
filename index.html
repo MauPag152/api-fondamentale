@@ -2,17 +2,16 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Analyse Bourse Maurice - Finnhub Edition</title>
+  <title>Analyse Bourse Maurice - Finnhub Pro</title>
   <style>
     body { background:#0b1220; color:#e7eefc; font-family:sans-serif; padding:20px; }
     .card { background:#0f1b33; border:1px solid #233357; border-radius:12px; padding:15px; margin-bottom:15px; }
     input, select { background:#0b1730; color:white; border:1px solid #233357; padding:10px; border-radius:8px; width:100%; margin-bottom:10px; font-size:16px; }
-    button { cursor:pointer; padding:12px; border-radius:8px; border:none; font-weight:bold; width:100%; margin-top:5px; transition: 0.3s; }
+    button { cursor:pointer; padding:12px; border-radius:8px; border:none; font-weight:bold; width:100%; margin-top:5px; }
     .btn-api { background:#089981; color:white; }
-    .btn-api:hover { background:#067d68; }
     .btn-save { background:#1a3a6b; color:white; }
     .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; overflow-x: auto; }
+    pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; }
     label { display:block; margin-bottom:5px; font-size:14px; color:#94a3b8; }
   </style>
 </head>
@@ -20,101 +19,83 @@
 
   <div class="card">
     <h2>1) Configuration Finnhub</h2>
-    <label>MA CLÉ API FINNHUB :</label>
-    <input id="apiKey" type="password" placeholder="Collez votre clé Finnhub ici">
+    <label>MA CLÉ API (Sauvegardée) :</label>
+    <input id="apiKey" type="text" value="VOTRE_CLÉ_ICI">
     
-    <label>Action à analyser (Ticker) :</label>
+    <label>Ticker :</label>
     <select id="tickerSelect">
       <option value="NVDA">NVDA</option>
       <option value="AAPL">AAPL</option>
       <option value="MSFT">MSFT</option>
       <option value="GOOGL">GOOGL</option>
       <option value="AMZN">AMZN</option>
-      <option value="TSLA">TSLA</option>
     </select>
-    <button id="btnGo" class="btn-api">🚀 RÉCUPÉRER LES DONNÉES FINNHUB</button>
+    <button id="btnGo" class="btn-api">🚀 RÉCUPÉRER LES DONNÉES</button>
   </div>
 
   <div class="card">
-    <h2>2) Résultats (Ratios Fondamentaux)</h2>
+    <h2>2) Résultats Fondamentaux</h2>
     <div class="grid">
-      <div><label>P/E (TTM)</label><input id="pe" readonly placeholder="---"></div>
-      <div><label>ROE (%)</label><input id="roe" readonly placeholder="---"></div>
-      <div><label>Marge Nette (%)</label><input id="margin" readonly placeholder="---"></div>
-      <div><label>Dette / Équité</label><input id="de" readonly placeholder="---"></div>
+      <div><label>P/E</label><input id="pe" readonly></div>
+      <div><label>ROE (%)</label><input id="roe" readonly></div>
+      <div><label>Marge Nette (%)</label><input id="margin" readonly></div>
+      <div><label>Dette/Équité</label><input id="de" readonly></div>
     </div>
     <button id="save" class="btn-save">💾 MÉMORISER POUR LE RAPPORT</button>
   </div>
 
   <div class="card">
-    <h2>3) Rapport Final (Markdown)</h2>
-    <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px;">GÉNÉRER LE TABLEAU DE SYNTHÈSE</button>
-    <pre id="md">Le tableau apparaîtra ici après avoir mémorisé vos titres...</pre>
+    <h2>3) Rapport Markdown</h2>
+    <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px;">GÉNÉRER LE TABLEAU</button>
+    <pre id="md">En attente...</pre>
   </div>
 
 <script>
-  const LS_KEY = "maurice_finnhub_data";
+  const LS_KEY = "maurice_finnhub_v1";
 
   document.getElementById("btnGo").onclick = async () => {
     const key = document.getElementById("apiKey").value;
     const sym = document.getElementById("tickerSelect").value;
+    if(!key || key === "VOTRE_CLÉ_ICI") return alert("Veuillez entrer votre clé Finnhub.");
     
-    if(!key) return alert("Veuillez coller votre clé API Finnhub.");
-    document.getElementById("btnGo").innerText = "⏳ Connexion en cours...";
-
+    document.getElementById("btnGo").innerText = "⏳ Chargement...";
     try {
-      // Finnhub utilise l'endpoint 'basic-financials' pour les ratios
       const url = `https://finnhub.io/api/v1/stock/metric?symbol=${sym}&metric=all&token=${key}`;
       const response = await fetch(url);
       const data = await response.json();
 
       if (data && data.metric) {
-        const m = data.metric;
-        // Extraction des données selon vos critères obligatoires
-        document.getElementById("pe").value = m.peTTM ? parseFloat(m.peTTM).toFixed(2) : "N/A";
-        document.getElementById("roe").value = m.roeTTM ? parseFloat(m.roeTTM).toFixed(1) + "%" : "N/A";
-        document.getElementById("margin").value = m.netProfitMarginTTM ? parseFloat(m.netProfitMarginTTM).toFixed(1) + "%" : "N/A";
-        document.getElementById("de").value = m.totalDebtTotalEquityQuarterly ? parseFloat(m.totalDebtTotalEquityQuarterly).toFixed(2) : "N/A";
-        
-        alert("Données reçues avec succès pour " + sym);
+        document.getElementById("pe").value = data.metric.peTTM || "N/A";
+        document.getElementById("roe").value = data.metric.roeTTM ? data.metric.roeTTM.toFixed(1) + "%" : "N/A";
+        document.getElementById("margin").value = data.metric.netProfitMarginTTM ? data.metric.netProfitMarginTTM.toFixed(1) + "%" : "N/A";
+        document.getElementById("de").value = data.metric.totalDebtTotalEquityQuarterly || "N/A";
+        alert("Succès !");
       } else {
-        alert("Erreur : Clé incorrecte ou limite atteinte (30 appels/min).");
+        alert("Erreur: Vérifiez votre clé ou la limite d'appels.");
       }
-    } catch (e) {
-      alert("Erreur de connexion aux serveurs Finnhub.");
-    }
-    document.getElementById("btnGo").innerText = "🚀 RÉCUPÉRER LES DONNÉES FINNHUB";
+    } catch (e) { alert("Erreur de connexion."); }
+    document.getElementById("btnGo").innerText = "🚀 RÉCUPÉRER LES DONNÉES";
   };
 
   document.getElementById("save").onclick = () => {
-    const sym = document.getElementById("tickerSelect").value;
-    const peVal = document.getElementById("pe").value;
-    if(peVal === "" || peVal === "---") return alert("Récupérez d'abord les données avec le bouton vert.");
-
     const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    const sym = document.getElementById("tickerSelect").value;
     db[sym] = {
-      pe: peVal,
+      pe: document.getElementById("pe").value,
       roe: document.getElementById("roe").value,
       margin: document.getElementById("margin").value,
       de: document.getElementById("de").value
     };
     localStorage.setItem(LS_KEY, JSON.stringify(db));
-    alert(sym + " a été ajouté à votre liste locale.");
+    alert(sym + " mémorisé !");
   };
 
   document.getElementById("gen").onclick = () => {
     const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-    const tickers = Object.keys(db);
-    if(tickers.length === 0) return alert("Aucune donnée mémorisée. Utilisez le bouton bleu d'abord.");
-
-    let md = "### RAPPORT D'ANALYSE FONDAMENTALE (MAURICE)\n\n";
-    md += "| Ticker | P/E | ROE | Marge Nette | Dette/Équité |\n";
-    md += "|:---:|:---:|:---:|:---:|:---:|\n";
-    
-    tickers.forEach(s => {
-      md += `| **${s}** | ${db[s].pe} | ${db[s].roe} | ${db[s].margin} | ${db[s].de} |\n`;
-    });
-    
+    let md = "| Ticker | P/E | ROE | Marge | Dette/Éq |\n|---|---|---|---|---|\n";
+    for(let s in db) {
+      md += `| ${s} | ${db[s].pe} | ${db[s].roe} | ${db[s].margin} | ${db[s].de} |\n`;
+    }
     document.getElementById("md").innerText = md;
   };
 </script>
