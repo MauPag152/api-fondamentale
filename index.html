@@ -2,108 +2,103 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Analyse Maurice - Version Simplifiée</title>
+  <title>Analyse Bourse Maurice - Standard</title>
   <style>
     body { background:#0b1220; color:#e7eefc; font-family:sans-serif; padding:20px; }
     .card { background:#0f1b33; border:1px solid #233357; border-radius:12px; padding:15px; margin-bottom:15px; }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; }
-    input { background:#0b1730; color:white; border:1px solid #233357; padding:8px; border-radius:5px; width:100%; }
-    button { cursor:pointer; padding:10px; border-radius:8px; border:none; font-weight:bold; margin:5px 0; }
+    input, select { background:#0b1730; color:white; border:1px solid #233357; padding:10px; border-radius:8px; width:100%; margin-bottom:10px; }
+    button { cursor:pointer; padding:12px; border-radius:8px; border:none; font-weight:bold; width:100%; margin-top:5px; }
     .btn-api { background:#089981; color:white; }
     .btn-save { background:#1a3a6b; color:white; }
-    pre { background:#0b1730; padding:10px; border-radius:8px; color:#19c37d; white-space:pre-wrap; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <div style="display:flex; justify-content:space-between;">
-      <h2>1) Actions & API</h2>
-      <button id="genAll" style="background:#f59e0b">Générer Rapport Final</button>
-    </div>
-    <input id="tickersInput" value="NVDA, AAPL, MSFT" style="margin-bottom:10px;">
-    <select id="tickerSelect" style="padding:10px; background:#0b1730; color:white; border-radius:8px;"></select>
-    <button id="autoFillBtn" class="btn-api">✨ RÉCUPÉRER LES DONNÉES (VERCEL)</button>
+    <h2>1) Configuration & Ticker</h2>
+    <label>MA CLÉ API FMP (Collez-la ici) :</label>
+    <input id="apiKey" type="password" placeholder="Collez votre clé ici">
+    
+    <label>Action à analyser :</label>
+    <select id="tickerSelect">
+      <option value="NVDA">NVDA</option>
+      <option value="AAPL">AAPL</option>
+      <option value="MSFT">MSFT</option>
+      <option value="GOOG">GOOG</option>
+      <option value="AMZN">AMZN</option>
+    </select>
+    <button id="btnGo" class="btn-api">🚀 RÉCUPÉRER LES DONNÉES EN DIRECT</button>
   </div>
 
   <div class="card">
-    <h2>2) Ratios Fondamentaux</h2>
+    <h2>2) Résultats de l'Analyse</h2>
     <div class="grid">
-      <div><label>Secteur</label><input id="sector"></div>
-      <div><label>P/E</label><input id="pe"></div>
-      <div><label>PEG</label><input id="peg"></div>
-      <div><label>ROE (%)</label><input id="roe5y"></div>
-      <div><label>Marge nette</label><input id="netMargin"></div>
-      <div><label>FCF Yield</label><input id="fcfYield"></div>
-      <div><label>Dette/Équité</label><input id="de"></div>
+      <div><label>P/E</label><input id="pe" readonly></div>
+      <div><label>ROE (%)</label><input id="roe" readonly></div>
+      <div><label>Marge (%)</label><input id="margin" readonly></div>
+      <div><label>FCF Yield</label><input id="fcf" readonly></div>
     </div>
-    <button id="saveActive" class="btn-save" style="margin-top:15px;">💾 ENREGISTRER CE TICKER</button>
+    <button id="save" class="btn-save">💾 ENREGISTRER POUR LE RAPPORT</button>
   </div>
 
   <div class="card">
-    <h2>3) Rapport Markdown</h2>
-    <pre id="md">En attente de génération...</pre>
+    <h2>3) Rapport Markdown Final</h2>
+    <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px;">GÉNÉRER LE TABLEAU</button>
+    <pre id="md">En attente...</pre>
   </div>
 
 <script>
-const LS_KEY = "ma_bourse_data";
+  const LS_KEY = "maurice_stock_data";
 
-// 1. GESTION DE LA LISTE
-document.getElementById("tickersInput").onchange = function() {
-  const list = this.value.split(',').map(s => s.trim().toUpperCase());
-  const sel = document.getElementById("tickerSelect");
-  sel.innerHTML = "";
-  list.forEach(s => { let opt = new Option(s,s); sel.add(opt); });
-};
-document.getElementById("tickersInput").onchange();
-
-// 2. APPEL API VERS VERCEL
-document.getElementById("autoFillBtn").onclick = async () => {
-  const sym = document.getElementById("tickerSelect").value;
-  document.getElementById("autoFillBtn").innerText = "⏳ Connexion...";
-  
-  try {
-    const resp = await fetch(`/api/get-fundamentals?ticker=${sym}`);
-    const data = await resp.json();
-    const r = data.ratios;
+  document.getElementById("btnGo").onclick = async () => {
+    const key = document.getElementById("apiKey").value;
+    const sym = document.getElementById("tickerSelect").value;
     
-    document.getElementById("sector").value = data.profile?.sector || "N/A";
-    document.getElementById("pe").value = r.peRatioTTM?.toFixed(2) || "N/A";
-    document.getElementById("peg").value = r.pegRatioTTM?.toFixed(2) || "N/A";
-    document.getElementById("roe5y").value = r.returnOnEquityTTM ? (r.returnOnEquityTTM * 100).toFixed(1) + "%" : "N/A";
-    document.getElementById("netMargin").value = r.netProfitMarginTTM ? (r.netProfitMarginTTM * 100).toFixed(1) + "%" : "N/A";
-    document.getElementById("fcfYield").value = r.freeCashFlowYieldTTM ? (r.freeCashFlowYieldTTM * 100).toFixed(1) + "%" : "N/A";
-    document.getElementById("de").value = r.debtToEquityTTM?.toFixed(2) || "N/A";
-    
-    alert("Données reçues pour " + sym);
-  } catch (e) {
-    alert("Erreur de connexion au moteur Vercel.");
-  }
-  document.getElementById("autoFillBtn").innerText = "✨ RÉCUPÉRER LES DONNÉES (VERCEL)";
-};
+    if(!key) return alert("Veuillez coller votre clé API en haut.");
+    document.getElementById("btnGo").innerText = "⏳ Recherche...";
 
-// 3. SAUVEGARDE ET GÉNÉRATION
-document.getElementById("saveActive").onclick = () => {
-  const sym = document.getElementById("tickerSelect").value;
-  const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-  db[sym] = {
-    sector: document.getElementById("sector").value,
-    pe: document.getElementById("pe").value,
-    roe: document.getElementById("roe5y").value,
-    margin: document.getElementById("netMargin").value
+    try {
+      // Appel direct à FMP sans passer par Vercel
+      const url = `https://financialmodelingprep.com/api/v3/ratios-ttm/${sym}?apikey=${key}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const r = data[0];
+        document.getElementById("pe").value = r.peRatioTTM?.toFixed(2) || "N/A";
+        document.getElementById("roe").value = (r.returnOnEquityTTM * 100).toFixed(1) + "%";
+        document.getElementById("margin").value = (r.netProfitMarginTTM * 100).toFixed(1) + "%";
+        document.getElementById("fcf").value = (r.freeCashFlowYieldTTM * 100).toFixed(1) + "%";
+        alert("Succès ! Données trouvées pour " + sym);
+      } else {
+        alert("Clé invalide ou limite atteinte pour ce ticker.");
+      }
+    } catch (e) {
+      alert("Erreur de connexion. Vérifiez votre internet ou la clé.");
+    }
+    document.getElementById("btnGo").innerText = "🚀 RÉCUPÉRER LES DONNÉES EN DIRECT";
   };
-  localStorage.setItem(LS_KEY, JSON.stringify(db));
-  alert(sym + " mémorisé !");
-};
 
-document.getElementById("genAll").onclick = () => {
-  const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-  let res = "| Ticker | Secteur | P/E | ROE | Marge |\n|---|---|---|---|---|\n";
-  for(let s in db) {
-    res += `| **${s}** | ${db[s].sector} | ${db[s].pe} | ${db[s].roe} | ${db[s].margin} |\n`;
-  }
-  document.getElementById("md").innerText = res;
-};
+  document.getElementById("save").onclick = () => {
+    const sym = document.getElementById("tickerSelect").value;
+    const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    db[sym] = {
+      pe: document.getElementById("pe").value,
+      roe: document.getElementById("roe").value,
+      margin: document.getElementById("margin").value
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(db));
+    alert(sym + " mémorisé !");
+  };
+
+  document.getElementById("gen").onclick = () => {
+    const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    let md = "| Ticker | P/E | ROE | Marge |\n|---|---|---|---|\n";
+    for(let s in db) md += `| **${s}** | ${db[s].pe} | ${db[s].roe} | ${db[s].margin} |\n`;
+    document.getElementById("md").innerText = md;
+  };
 </script>
 </body>
 </html>
