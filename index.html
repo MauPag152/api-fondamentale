@@ -2,15 +2,15 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Station d'Analyse Maurice - Version Complète</title>
+  <title>Analyse Fondamentale - Maurice</title>
   <style>
     body { background:#0b1220; color:#e7eefc; font-family:sans-serif; padding:20px; }
+    .btn-nav { text-decoration:none; background:#233357; color:#19c37d; padding:10px 15px; border-radius:8px; font-weight:bold; border:1px solid #19c37d; font-size:14px; display:inline-block; margin-bottom:20px; }
     .card { background:#0f1b33; border:1px solid #233357; border-radius:12px; padding:15px; margin-bottom:15px; }
-    input { background:#0b1730; color:white; border:1px solid #233357; padding:10px; border-radius:8px; width:100%; margin-bottom:10px; font-size:16px; box-sizing: border-box; }
+    input, select { background:#0b1730; color:white; border:1px solid #233357; padding:10px; border-radius:8px; width:100%; margin-bottom:10px; font-size:16px; box-sizing: border-box; }
     button { cursor:pointer; padding:12px; border-radius:8px; border:none; font-weight:bold; width:100%; margin-top:5px; }
     .btn-api { background:#089981; color:white; }
     .btn-save { background:#1a3a6b; color:white; }
-    .btn-key { background:#4b5563; color:white; font-size:12px; width:auto; padding:0 15px; }
     .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     pre { background:#0b1730; padding:15px; border-radius:8px; color:#19c37d; border:1px solid #233357; white-space: pre-wrap; font-size: 13px; }
     label { display:block; margin-bottom:5px; font-size:13px; color:#94a3b8; font-weight:bold; }
@@ -21,47 +21,49 @@
 </head>
 <body>
 
+  <a href="index.html" class="btn-nav">🏠 MENU PRINCIPAL</a>
+
   <div class="card">
-    <h2>1) Configuration & Sécurité</h2>
-    <label>MA CLÉ API FINNHUB :</label>
+    <h2>1) Configuration Clé API</h2>
     <div style="display:flex; gap:10px;">
-      <input id="apiKey" type="password" placeholder="Collez votre clé ici" style="flex-grow:1; margin-bottom:0;">
-      <button id="saveKey" class="btn-key">💾 SAUVEGARDER LA CLÉ</button>
+      <input id="apiKey" type="password" placeholder="Clé Finnhub..." style="flex-grow:1; margin-bottom:0;">
+      <button id="saveKey" style="background:#4b5563; color:white; width:auto; padding:0 15px; border-radius:8px;">💾</button>
     </div>
   </div>
 
   <div class="card">
-    <h2>2) Recherche & Graphique</h2>
-    <label>Ticker (Ex: NVDA, MU, AAPL) :</label>
+    <h2>2) Recherche Multiple & Graphique</h2>
+    <label>Entrez vos tickers (ex: NVDA, MU, AAPL) :</label>
+    <input id="tickerInput" type="text" value="NVDA, MU, AAPL" placeholder="Séparez par des virgules">
+    
+    <label>Action sélectionnée :</label>
     <div style="display:flex; gap:10px;">
-        <input id="tickerInput" type="text" value="NVDA" style="flex-grow:1; margin-bottom:0;">
+        <select id="tickerSelect" style="flex-grow:1; margin-bottom:0;"></select>
         <button id="btnGo" class="btn-api" style="width:auto; padding: 0 25px;">🚀 ANALYSER</button>
     </div>
-    <div id="chart-container">
-        <div id="tradingview_widget"></div>
-    </div>
+    <div id="chart-container"><div id="tradingview_widget"></div></div>
   </div>
 
   <div class="card">
-    <h2>3) Score Fondamental (Critères de Maurice)</h2>
+    <h2>3) Score Fondamental (Seuils de Maurice)</h2>
     <div class="grid">
       <div><label>P/E (<20)</label><input id="pe" readonly></div>
       <div><label>PEG (<1.2)</label><input id="peg" readonly></div>
-      <div><label>ROE 5 ans (>12%)</label><input id="roe" readonly></div>
-      <div><label>Quick Ratio (>1)</label><input id="quick" readonly></div>
+      <div><label>ROE (>12%)</label><input id="roe" readonly></div>
+      <div><label>Quick (>1)</label><input id="quick" readonly></div>
       <div><label>Dette/Éq (<0.5)</label><input id="de" readonly></div>
-      <div><label>Marge Nette (>10%)</label><input id="margin" readonly></div>
-      <div><label>Croissance Rev. (>10%)</label><input id="revGrow" readonly></div>
+      <div><label>Marge (>10%)</label><input id="margin" readonly></div>
+      <div><label>Revenus (>10%)</label><input id="revGrow" readonly></div>
       <div><label>Dividende (>2%)</label><input id="divYield" readonly></div>
     </div>
     <button id="saveData" class="btn-save">➕ AJOUTER AU COMPARATEUR</button>
   </div>
 
   <div class="card">
-    <h2>4) Top 5 - Classement de Qualité</h2>
+    <h2>4) Top 5 - Classement Qualité</h2>
     <button id="gen" style="background:#f59e0b; color:white; margin-bottom:10px; width:100%;">📊 CLASSER LES ACTIONS</button>
     <pre id="md">En attente d'analyse...</pre>
-    <button id="clearAll" style="background:#450a0a; color:white; font-size:11px; padding:5px; width:auto; border-radius:4px;">🗑️ RÉINITIALISER LA LISTE</button>
+    <button id="clearAll" style="background:#450a0a; color:white; font-size:11px; padding:5px; width:auto; border-radius:4px;">🗑️ RESET LISTE</button>
   </div>
 
 <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -70,43 +72,43 @@
   const DATA_STORAGE = "maurice_comparator_v3";
   let lastScore = 0;
 
-  // Initialisation au chargement
+  // Mise à jour du menu déroulant quand on tape des tickers
+  const input = document.getElementById("tickerInput");
+  const select = document.getElementById("tickerSelect");
+
+  function updateSelect() {
+    const list = input.value.split(',').map(s => s.trim().toUpperCase()).filter(s => s !== "");
+    select.innerHTML = "";
+    list.forEach(sym => {
+      const opt = document.createElement("option");
+      opt.value = sym; opt.text = sym;
+      select.appendChild(opt);
+    });
+  }
+
+  input.oninput = updateSelect;
+
   window.onload = () => {
     const savedKey = localStorage.getItem(KEY_STORAGE);
     if(savedKey) document.getElementById("apiKey").value = savedKey;
-    loadChart("NVDA");
+    updateSelect();
+    loadChart(select.value || "NVDA");
   };
 
-  // Sauvegarde de la clé
   document.getElementById("saveKey").onclick = () => {
-    const key = document.getElementById("apiKey").value;
-    localStorage.setItem(KEY_STORAGE, key);
-    alert("Clé sauvegardée dans votre navigateur !");
+    localStorage.setItem(KEY_STORAGE, document.getElementById("apiKey").value);
+    alert("Clé sauvegardée !");
   };
 
   function loadChart(symbol) {
     new TradingView.widget({
-      "width": "100%",
-      "height": 400,
-      "symbol": symbol,
-      "interval": "D",
-      "timezone": "Etc/UTC",
-      "theme": "dark",
-      "style": "1",
-      "locale": "fr",
-      "toolbar_bg": "#f1f3f6",
-      "enable_publishing": false,
-      "hide_side_toolbar": false,
-      "allow_symbol_change": true,
-      "container_id": "tradingview_widget"
+      "width": "100%", "height": 400, "symbol": symbol, "interval": "D", "theme": "dark", "style": "1", "locale": "fr", "container_id": "tradingview_widget"
     });
   }
 
   function setStatus(id, val, isBetterHigher, threshold) {
     const el = document.getElementById(id);
-    if (val === "N/A" || val === null || val === undefined) { 
-      el.value = "N/A"; el.className = ""; return 1; 
-    }
+    if (!val || val === "N/A") { el.value = "N/A"; el.className = ""; return 1; }
     const num = parseFloat(val);
     el.value = (id === "roe" || id === "margin" || id === "revGrow" || id === "divYield") ? num.toFixed(1) + "%" : num.toFixed(2);
     const isOk = isBetterHigher ? num > threshold : num < threshold;
@@ -116,15 +118,12 @@
 
   document.getElementById("btnGo").onclick = async () => {
     const key = document.getElementById("apiKey").value;
-    const sym = document.getElementById("tickerInput").value.toUpperCase();
-    if(!key) return alert("Veuillez entrer ou sauvegarder votre clé API.");
-
+    const sym = select.value;
+    if(!key) return alert("Entrez votre clé API Finnhub.");
     loadChart(sym);
-
     try {
       const res = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${sym}&metric=all&token=${key}`);
       const d = await res.json();
-      
       if(d.metric) {
         const m = d.metric;
         lastScore = 0;
@@ -136,38 +135,32 @@
         lastScore += setStatus("margin", m.netProfitMarginTTM, true, 10);
         lastScore += setStatus("revGrow", m.revenueGrowthTTMYoy, true, 10);
         lastScore += setStatus("divYield", m.dividendYieldIndicatedAnnual, true, 2);
-        alert("Analyse de " + sym + " terminée. Score: " + lastScore + "/16");
-      } else {
-        alert("Erreur: Ticker non trouvé ou limite de clé atteinte.");
       }
-    } catch (e) { alert("Erreur de connexion à Finnhub."); }
+    } catch (e) { alert("Erreur API"); }
   };
 
   document.getElementById("saveData").onclick = () => {
     const db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "[]");
-    const sym = document.getElementById("tickerInput").value.toUpperCase();
-    db.push({ name: sym, score: lastScore });
-    if(db.length > 5) db.shift();
+    db.push({ name: select.value, score: lastScore });
+    if(db.length > 10) db.shift();
     localStorage.setItem(DATA_STORAGE, JSON.stringify(db));
-    alert(sym + " ajouté au comparateur !");
+    alert(select.value + " mémorisé !");
   };
 
   document.getElementById("gen").onclick = () => {
     let db = JSON.parse(localStorage.getItem(DATA_STORAGE) || "[]");
     db.sort((a,b) => b.score - a.score);
-    let md = "| RANG | TICKER | SCORE / 16 | QUALITÉ |\n|:---:|:---|:---:|:---:|\n";
+    let md = "| RANG | TICKER | SCORE | QUALITÉ |\n|:---:|:---|:---:|:---:|\n";
     db.forEach((item, i) => {
-      let q = item.score >= 12 ? "🟢 EXCELLENT" : (item.score >= 8 ? "🟡 CORRECT" : "🔴 À ÉVITER");
-      md += `| #${i+1} | ${item.name} | ${item.score} | ${q} |\n`;
+      let q = item.score >= 12 ? "🟢 EXCEL" : (item.score >= 8 ? "🟡 OK" : "🔴 EVITER");
+      md += `| #${i+1} | ${item.name} | ${item.score}/16 | ${q} |\n`;
     });
     document.getElementById("md").innerText = md;
   };
 
   document.getElementById("clearAll").onclick = () => {
-    if(confirm("Voulez-vous vraiment vider votre liste de comparaison ?")) {
-      localStorage.removeItem(DATA_STORAGE);
-      location.reload();
-    }
+    localStorage.removeItem(DATA_STORAGE);
+    location.reload();
   };
 </script>
 </body>
